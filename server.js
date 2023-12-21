@@ -1,54 +1,17 @@
 const http = require('http');
-const { parse } = require('url');
-
 let data = [];
 
 const server = http.createServer((req, res) => {
-  const { pathname, method } = parse(req.url, true);
   res.setHeader('Content-Type', 'application/json');
-
-  const getIndexById = id => data.findIndex(item => item.id === id);
-
-  switch (method) {
-    case 'GET':
-      if (pathname === '/api/items') return res.end(JSON.stringify(data));
-      break;
-    case 'POST':
-      if (pathname === '/api/items') {
-        let body = '';
-        req.on('data', chunk => body += chunk);
-        req.on('end', () => {
-          const newItem = { ...JSON.parse(body), id: (data.length > 0 ? Math.max(...data.map(item => item.id)) : 0) + 1 };
-          data.push(newItem);
-          res.end(JSON.stringify(newItem));
-        });
-      }
-      break;
-    case 'PUT':
-    case 'DELETE':
-      if (pathname.startsWith('/api/items/')) {
-        const itemId = parseInt(pathname.split('/').pop(), 10);
-        const itemIndex = getIndexById(itemId);
-        if (itemIndex !== -1) {
-          if (method === 'PUT') {
-            let body = '';
-            req.on('data', chunk => body += chunk);
-            req.on('end', () => {
-              data[itemIndex] = { ...data[itemIndex], ...JSON.parse(body) };
-              res.end(JSON.stringify(data[itemIndex]));
-            });
-          } else {
-            const [deletedItem] = data.splice(itemIndex, 1);
-            res.end(JSON.stringify({ message: 'Item removido com sucesso.', deletedItem }));
-          }
-        }
-      }
-      break;
-  }
-
-  res.writeHead(404, {'Content-Type': 'application/json'});
-  res.end(JSON.stringify({ error: 'Rota não encontrada' }));
+  if (req.method === 'GET' && req.url === '/api/data') res.end(JSON.stringify(data));
+  if (req.method === 'POST' && req.url === '/api/data') req.on('data', chunk => data.push(JSON.parse(chunk))).on('end', () => res.end());
+  if (req.method === 'PUT' && req.url === '/api/data') req.on('data', chunk => (data = JSON.parse(chunk))).on('end', () => res.end());
+  if (req.method === 'DELETE' && req.url === '/api/data') (data = []), (res.statusCode = 204), res.end();
+  if (!res.finished) res.statusCode = 404, res.end('Not Found');
 });
 
-const porta = 3000;
-server.listen(porta, () => console.log(`Server running http://localhost:${porta}`));
+const PORT = 3000;
+server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+//curl -X POST -H "Content-Type: application/json" -d '{"name":"Novo Dado"}' http://localhost:3000/api/data
+
